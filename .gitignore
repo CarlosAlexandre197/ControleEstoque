@@ -1,0 +1,18 @@
+# Banco de dados SQLite
+database/
+
+# Arquivos Python temporários
+__pycache__/
+*.pyc
+
+# Ambiente virtual
+venv/
+.venv/
+
+# Configurações locais do VS Code
+.vscode/
+
+# Executável gerado pelo PyInstaller
+build/
+dist/
+*.spec
