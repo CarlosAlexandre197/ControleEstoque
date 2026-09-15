@@ -1,5 +1,6 @@
 import sqlite3
 from pathlib import Path
+from datetime import datetime
 
 
 # ============================================================
@@ -16,19 +17,11 @@ CAMINHO_BANCO = PASTA_DATABASE / "estoque.db"
 # ============================================================
 
 def conectar():
-    """
-    Cria a pasta database, caso não exista,
-    e retorna uma conexão com o banco SQLite.
-    """
-
     PASTA_DATABASE.mkdir(parents=True, exist_ok=True)
 
     conexao = sqlite3.connect(CAMINHO_BANCO)
-
-    # Permite acessar as colunas pelo nome
     conexao.row_factory = sqlite3.Row
 
-    # Ativa integridade das chaves estrangeiras
     conexao.execute("PRAGMA foreign_keys = ON")
 
     return conexao
@@ -102,21 +95,13 @@ def criar_tabelas():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS movimentacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-
             produto_id INTEGER NOT NULL,
-
             tipo TEXT NOT NULL,
-
             quantidade INTEGER NOT NULL,
-
             origem_id INTEGER,
-
             destino_id INTEGER,
-
             observacao TEXT,
-
             usuario TEXT,
-
             data TEXT NOT NULL,
             hora TEXT NOT NULL,
 
@@ -154,7 +139,210 @@ def criar_tabelas():
 
 
 # ============================================================
-# TESTE DO BANCO
+# CADASTRAR PRODUTO
+# ============================================================
+
+def cadastrar_produto(
+    codigo,
+    descricao,
+    categoria,
+    unidade,
+    estoque_minimo,
+    estoque_inicial,
+    local_nome="Almoxarifado"
+):
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+
+        agora = datetime.now()
+
+        data = agora.strftime("%d/%m/%Y")
+        hora = agora.strftime("%H:%M:%S")
+
+        # ----------------------------------------------------
+        # Verifica se o código já existe
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            SELECT id
+            FROM produtos
+            WHERE codigo = ?
+        """, (codigo,))
+
+        if cursor.fetchone():
+            return False, "Já existe um produto com esse código."
+
+        # ----------------------------------------------------
+        # Cadastra o produto
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            INSERT INTO produtos (
+                codigo,
+                descricao,
+                categoria,
+                unidade,
+                estoque_minimo,
+                data_cadastro
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            codigo,
+            descricao,
+            categoria,
+            unidade,
+            estoque_minimo,
+            data
+        ))
+
+        produto_id = cursor.lastrowid
+
+        # ----------------------------------------------------
+        # Local do estoque
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            SELECT id
+            FROM locais
+            WHERE nome = ?
+        """, (local_nome,))
+
+        local = cursor.fetchone()
+
+        if not local:
+            raise Exception(
+                f"Local '{local_nome}' não encontrado."
+            )
+
+        local_id = local["id"]
+
+        # ----------------------------------------------------
+        # Cria estoque inicial
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            INSERT INTO estoque (
+                produto_id,
+                local_id,
+                quantidade
+            )
+            VALUES (?, ?, ?)
+        """, (
+            produto_id,
+            local_id,
+            estoque_inicial
+        ))
+
+        # ----------------------------------------------------
+        # Registra entrada inicial
+        # ----------------------------------------------------
+
+        if estoque_inicial > 0:
+
+            cursor.execute("""
+                INSERT INTO movimentacoes (
+                    produto_id,
+                    tipo,
+                    quantidade,
+                    origem_id,
+                    destino_id,
+                    observacao,
+                    usuario,
+                    data,
+                    hora
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                produto_id,
+                "ENTRADA",
+                estoque_inicial,
+                None,
+                local_id,
+                "Estoque inicial",
+                "",
+                data,
+                hora
+            ))
+
+        conexao.commit()
+
+        return True, "Produto cadastrado com sucesso."
+
+    except sqlite3.IntegrityError as erro:
+
+        conexao.rollback()
+
+        return False, f"Erro ao cadastrar produto: {erro}"
+
+    except Exception as erro:
+
+        conexao.rollback()
+
+        return False, f"Erro: {erro}"
+
+    finally:
+
+        conexao.close()
+
+
+# ============================================================
+# BUSCAR PRODUTOS
+# ============================================================
+
+def buscar_produtos():
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            codigo,
+            descricao,
+            categoria,
+            unidade,
+            estoque_minimo,
+            data_cadastro
+        FROM produtos
+        WHERE ativo = 1
+        ORDER BY descricao
+    """)
+
+    produtos = cursor.fetchall()
+
+    conexao.close()
+
+    return produtos
+
+
+# ============================================================
+# BUSCAR LOCAIS
+# ============================================================
+
+def buscar_locais():
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    cursor.execute("""
+        SELECT id, nome
+        FROM locais
+        WHERE ativo = 1
+        ORDER BY nome
+    """)
+
+    locais = cursor.fetchall()
+
+    conexao.close()
+
+    return locais
+
+
+# ============================================================
+# TESTE
 # ============================================================
 
 if __name__ == "__main__":
@@ -165,20 +353,14 @@ if __name__ == "__main__":
     print(" BANCO DE ESTOQUE")
     print("========================================")
     print()
-    print("Banco criado com sucesso!")
+    print("Banco criado/verificado com sucesso!")
     print()
     print(f"Local: {CAMINHO_BANCO}")
     print()
-    print("Tabelas criadas:")
+    print("Tabelas:")
     print("- produtos")
     print("- locais")
     print("- estoque")
     print("- movimentacoes")
-    print()
-    print("Locais iniciais cadastrados:")
-    print("- Almoxarifado")
-    print("- Expedição")
-    print("- Produção")
-    print("- Administrativo")
     print()
     print("========================================")
