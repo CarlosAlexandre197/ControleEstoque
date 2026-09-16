@@ -340,6 +340,81 @@ def buscar_locais():
 
     return locais
 
+# ============================================================
+# BUSCAR ESTOQUE
+# ============================================================
+
+def buscar_estoque(local_id=None, pesquisa=""):
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    sql = """
+        SELECT
+            produtos.id,
+            produtos.codigo,
+            produtos.descricao,
+            produtos.categoria,
+            produtos.unidade,
+            produtos.estoque_minimo,
+            locais.id AS local_id,
+            locais.nome AS local_nome,
+            estoque.quantidade
+        FROM estoque
+
+        INNER JOIN produtos
+            ON produtos.id = estoque.produto_id
+
+        INNER JOIN locais
+            ON locais.id = estoque.local_id
+
+        WHERE produtos.ativo = 1
+    """
+
+    parametros = []
+
+    # --------------------------------------------------------
+    # FILTRO POR LOCAL
+    # --------------------------------------------------------
+
+    if local_id is not None:
+
+        sql += """
+            AND locais.id = ?
+        """
+
+        parametros.append(local_id)
+
+    # --------------------------------------------------------
+    # PESQUISA
+    # --------------------------------------------------------
+
+    if pesquisa:
+
+        sql += """
+            AND (
+                produtos.codigo LIKE ?
+                OR produtos.descricao LIKE ?
+            )
+        """
+
+        termo = f"%{pesquisa}%"
+
+        parametros.append(termo)
+        parametros.append(termo)
+
+    sql += """
+        ORDER BY produtos.descricao
+    """
+
+    cursor.execute(sql, parametros)
+
+    estoque = cursor.fetchall()
+
+    conexao.close()
+
+    return estoque
+
 
 # ============================================================
 # TESTE
