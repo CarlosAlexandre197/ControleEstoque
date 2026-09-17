@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
 
 from widgets.dashboard import DashboardWidget
 from widgets.produtos import ProdutosWidget
+from widgets.estoque import EstoqueWidget
 
 
 class Interface(QMainWindow):
@@ -31,12 +32,10 @@ class Interface(QMainWindow):
 
         self.setCentralWidget(central)
 
-        layout_principal = QHBoxLayout(
-            central
-        )
+        layout_principal = QHBoxLayout(central)
 
         # ====================================================
-        # MENU
+        # MENU LATERAL
         # ====================================================
 
         menu = QWidget()
@@ -45,45 +44,17 @@ class Interface(QMainWindow):
 
         layout_menu = QVBoxLayout(menu)
 
-        self.botao_inicio = QPushButton(
-            "Início"
-        )
+        self.botao_inicio = QPushButton("Início")
+        self.botao_produtos = QPushButton("Produtos")
+        self.botao_estoque = QPushButton("Estoque")
+        self.botao_transferencia = QPushButton("Transferências")
+        self.botao_movimentacoes = QPushButton("Movimentações")
 
-        self.botao_produtos = QPushButton(
-            "Produtos"
-        )
-
-        self.botao_estoque = QPushButton(
-            "Estoque"
-        )
-
-        self.botao_transferencia = QPushButton(
-            "Transferências"
-        )
-
-        self.botao_movimentacoes = QPushButton(
-            "Movimentações"
-        )
-
-        layout_menu.addWidget(
-            self.botao_inicio
-        )
-
-        layout_menu.addWidget(
-            self.botao_produtos
-        )
-
-        layout_menu.addWidget(
-            self.botao_estoque
-        )
-
-        layout_menu.addWidget(
-            self.botao_transferencia
-        )
-
-        layout_menu.addWidget(
-            self.botao_movimentacoes
-        )
+        layout_menu.addWidget(self.botao_inicio)
+        layout_menu.addWidget(self.botao_produtos)
+        layout_menu.addWidget(self.botao_estoque)
+        layout_menu.addWidget(self.botao_transferencia)
+        layout_menu.addWidget(self.botao_movimentacoes)
 
         layout_menu.addStretch()
 
@@ -93,32 +64,29 @@ class Interface(QMainWindow):
 
         self.paginas = QStackedWidget()
 
+        # Dashboard
         self.dashboard = DashboardWidget()
 
+        # Produtos
         self.produtos = ProdutosWidget()
 
-        self.paginas.addWidget(
-            self.dashboard
-        )
+        # Estoque
+        self.estoque = EstoqueWidget()
 
-        self.paginas.addWidget(
-            self.produtos
-        )
-
-        # ====================================================
-        # LAYOUT
-        # ====================================================
-
-        layout_principal.addWidget(
-            menu
-        )
-
-        layout_principal.addWidget(
-            self.paginas
-        )
+        # Adiciona as páginas
+        self.paginas.addWidget(self.dashboard)
+        self.paginas.addWidget(self.produtos)
+        self.paginas.addWidget(self.estoque)
 
         # ====================================================
-        # EVENTOS
+        # ORGANIZAÇÃO DA JANELA
+        # ====================================================
+
+        layout_principal.addWidget(menu)
+        layout_principal.addWidget(self.paginas)
+
+        # ====================================================
+        # EVENTOS DOS BOTÕES
         # ====================================================
 
         self.botao_inicio.clicked.connect(
@@ -129,8 +97,12 @@ class Interface(QMainWindow):
             self.mostrar_produtos
         )
 
+        self.botao_estoque.clicked.connect(
+            self.mostrar_estoque
+        )
+
     # ========================================================
-    # PÁGINAS
+    # MOSTRAR INÍCIO
     # ========================================================
 
     def mostrar_inicio(self):
@@ -139,10 +111,27 @@ class Interface(QMainWindow):
             self.dashboard
         )
 
+    # ========================================================
+    # MOSTRAR PRODUTOS
+    # ========================================================
+
     def mostrar_produtos(self):
 
         self.produtos.carregar_produtos()
 
         self.paginas.setCurrentWidget(
             self.produtos
+        )
+
+    # ========================================================
+    # MOSTRAR ESTOQUE
+    # ========================================================
+
+    def mostrar_estoque(self):
+
+        self.estoque.carregar_locais()
+        self.estoque.carregar_estoque()
+
+        self.paginas.setCurrentWidget(
+            self.estoque
         )
