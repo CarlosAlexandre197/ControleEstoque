@@ -415,6 +415,220 @@ def buscar_estoque(local_id=None, pesquisa=""):
 
     return estoque
 
+# ============================================================
+# BUSCAR PRODUTOS PARA TRANSFERÊNCIA
+# ============================================================
+
+def buscar_produtos_ativos():
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            codigo,
+            descricao,
+            unidade
+        FROM produtos
+        WHERE ativo = 1
+        ORDER BY descricao
+    """)
+
+    produtos = cursor.fetchall()
+
+    conexao.close()
+
+    return produtos
+
+
+# ============================================================
+# REALIZAR TRANSFERÊNCIA
+# ============================================================
+
+def realizar_transferencia(
+    produto_id,
+    quantidade,
+    origem_id,
+    destino_id,
+    observacao="",
+    usuario=""
+):
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+
+        # ----------------------------------------------------
+        # VALIDAÇÕES
+        # ----------------------------------------------------
+
+        if quantidade <= 0:
+            return False, "A quantidade deve ser maior que zero."
+
+        if origem_id == destino_id:
+            return False, "A origem e o destino não podem ser iguais."
+
+        # ----------------------------------------------------
+        # VERIFICA ESTOQUE DA ORIGEM
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            SELECT quantidade
+            FROM estoque
+            WHERE produto_id = ?
+              AND local_id = ?
+        """, (
+            produto_id,
+            origem_id
+        ))
+
+        estoque_origem = cursor.fetchone()
+
+        if not estoque_origem:
+
+            return False, (
+                "O produto não possui estoque "
+                "registrado no local de origem."
+            )
+
+        quantidade_atual = estoque_origem["quantidade"]
+
+        if quantidade > quantidade_atual:
+
+            return False, (
+                f"Estoque insuficiente. "
+                f"Disponível: {quantidade_atual}"
+            )
+
+        # ----------------------------------------------------
+        # DATA E HORA
+        # ----------------------------------------------------
+
+        agora = datetime.now()
+
+        data = agora.strftime("%d/%m/%Y")
+        hora = agora.strftime("%H:%M:%S")
+
+        # ----------------------------------------------------
+        # DIMINUI ESTOQUE DA ORIGEM
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            UPDATE estoque
+            SET quantidade = quantidade - ?
+            WHERE produto_id = ?
+              AND local_id = ?
+        """, (
+            quantidade,
+            produto_id,
+            origem_id
+        ))
+
+        # ----------------------------------------------------
+        # VERIFICA SE JÁ EXISTE ESTOQUE NO DESTINO
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            SELECT id
+            FROM estoque
+            WHERE produto_id = ?
+              AND local_id = ?
+        """, (
+            produto_id,
+            destino_id
+        ))
+
+        estoque_destino = cursor.fetchone()
+
+        if estoque_destino:
+
+            # -----------------------------------------------
+            # SOMA AO ESTOQUE EXISTENTE
+            # -----------------------------------------------
+
+            cursor.execute("""
+                UPDATE estoque
+                SET quantidade = quantidade + ?
+                WHERE produto_id = ?
+                  AND local_id = ?
+            """, (
+                quantidade,
+                produto_id,
+                destino_id
+            ))
+
+        else:
+
+            # -----------------------------------------------
+            # CRIA ESTOQUE NO DESTINO
+            # -----------------------------------------------
+
+            cursor.execute("""
+                INSERT INTO estoque (
+                    produto_id,
+                    local_id,
+                    quantidade
+                )
+                VALUES (?, ?, ?)
+            """, (
+                produto_id,
+                destino_id,
+                quantidade
+            ))
+
+        # ----------------------------------------------------
+        # REGISTRA A MOVIMENTAÇÃO
+        # ----------------------------------------------------
+
+        cursor.execute("""
+            INSERT INTO movimentacoes (
+                produto_id,
+                tipo,
+                quantidade,
+                origem_id,
+                destino_id,
+                observacao,
+                usuario,
+                data,
+                hora
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            produto_id,
+            "TRANSFERÊNCIA",
+            quantidade,
+            origem_id,
+            destino_id,
+            observacao,
+            usuario,
+            data,
+            hora
+        ))
+
+        # ----------------------------------------------------
+        # CONFIRMA TODAS AS ALTERAÇÕES
+        # ----------------------------------------------------
+
+        conexao.commit()
+
+        return True, "Transferência realizada com sucesso."
+
+    except Exception as erro:
+
+        # ----------------------------------------------------
+        # DESFAZ TUDO SE HOUVER ERRO
+        # ----------------------------------------------------
+
+        conexao.rollback()
+
+        return False, f"Erro ao realizar transferência: {erro}"
+
+    finally:
+
+        conexao.close()
+
 
 # ============================================================
 # TESTE
