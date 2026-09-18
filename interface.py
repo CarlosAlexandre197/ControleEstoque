@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from widgets.dashboard import DashboardWidget
 from widgets.produtos import ProdutosWidget
 from widgets.estoque import EstoqueWidget
+from widgets.transferencia import TransferenciaWidget
 
 
 class Interface(QMainWindow):
