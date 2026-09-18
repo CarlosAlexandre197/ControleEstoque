@@ -73,6 +73,9 @@ class Interface(QMainWindow):
 
         # Estoque
         self.estoque = EstoqueWidget()
+        
+        # Transferência
+        self.transferencia = TransferenciaWidget()
 
         # Adiciona as páginas
         self.paginas.addWidget(self.dashboard)
